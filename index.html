@@ -173,6 +173,8 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 button.primary:hover{opacity:.9;color:#fff}
 :root[data-theme="dark"] button.primary:hover{color:#0F171E}
 button.ghost{background:transparent}
+button.danger{border-color:var(--signal);color:var(--signal);background:var(--signal-bg)}
+button[hidden]{display:none}
 
 /* ---------- output ---------- */
 .out-card{position:sticky;top:132px}
@@ -388,6 +390,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
       <div class="out-head">
         <h2>Note</h2>
         <div class="out-actions">
+          <button class="ghost" id="btnDel" hidden>出院移除</button>
           <button class="ghost" id="btnSave">存病人</button>
           <button class="primary" id="btnCopy">複製</button>
         </div>
@@ -796,6 +799,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     }
     html += '<button class="chip" data-id="__new">＋ 新病人</button>';
     bar.innerHTML = html;
+    $("btnDel").hidden = !activeId;
+    resetDel();
     var btns = bar.querySelectorAll("button");
     for(var j=0;j<btns.length;j++){
       btns[j].addEventListener("click", function(){
@@ -859,6 +864,31 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     toast("已存在這台裝置");
   }
 
+  // two-step: first click arms the button, second click within 3s deletes
+  var delTimer = null;
+  function resetDel(){
+    clearTimeout(delTimer); delTimer = null;
+    $("btnDel").textContent = "出院移除";
+    $("btnDel").classList.remove("danger");
+  }
+  function deletePatient(){
+    if(!activeId) return;
+    if(!delTimer){
+      $("btnDel").textContent = "確定移除？";
+      $("btnDel").classList.add("danger");
+      delTimer = setTimeout(resetDel, 3000);
+      return;
+    }
+    var name = "";
+    patients = patients.filter(function(pt){
+      if(pt.id === activeId){ name = pt.label || pt.dx || "未命名"; return false; }
+      return true;
+    });
+    savePatients();
+    newPatient();
+    toast("已移除 "+name);
+  }
+
   /* ---------- misc ---------- */
   var toastTimer;
   function toast(msg){
@@ -900,6 +930,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
   });
   $("btnCopy").addEventListener("click", copyNote);
   $("btnSave").addEventListener("click", savePatient);
+  $("btnDel").addEventListener("click", deletePatient);
 
   loadPatients();
   $("noteDate").value = today();
