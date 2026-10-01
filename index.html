@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>查房 Progress Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#E9EDF1;
+  --surface:#FFFFFF;
+  --surface-2:#F4F7F9;
+  --ink:#14202B;
+  --muted:#5C6B79;
+  --faint:#8A97A3;
+  --rule:#CBD5DD;
+  --rule-soft:#E1E8ED;
+  --accent:#14505C;
+  --accent-ink:#0E3A44;
+  --signal:#A61E4D;
+  --signal-bg:#FBE9EF;
+  --ok:#1F6F4A;
+  --shadow:0 1px 0 rgba(20,32,43,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F171E;
+    --surface:#16212B;
+    --surface-2:#1B2833;
+    --ink:#E4EBF1;
+    --muted:#9AA9B6;
+    --faint:#6F7F8C;
+    --rule:#2C3B48;
+    --rule-soft:#22303C;
+    --accent:#5FB8CA;
+    --accent-ink:#8CD3E1;
+    --signal:#F2789F;
+    --signal-bg:#33141F;
+    --ok:#5FBF8E;
+    --shadow:0 1px 0 rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F171E;
+  --surface:#16212B;
+  --surface-2:#1B2833;
+  --ink:#E4EBF1;
+  --muted:#9AA9B6;
+  --faint:#6F7F8C;
+  --rule:#2C3B48;
+  --rule-soft:#22303C;
+  --accent:#5FB8CA;
+  --accent-ink:#8CD3E1;
+  --signal:#F2789F;
+  --signal-bg:#33141F;
+  --ok:#5FBF8E;
+  --shadow:0 1px 0 rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"IBM Plex Sans","IBM Plex Sans TC",system-ui,-apple-system,"Noto Sans TC",sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 120px}
+
+/* ---------- top rail ---------- */
+.rail{
+  position:sticky;top:0;z-index:20;
+  background:var(--surface);
+  border-bottom:1px solid var(--rule);
+  margin:0 -16px 20px;
+  padding:10px 16px 12px;
+}
+.rail-inner{max-width:1180px;margin:0 auto}
+.rail-top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand{font-weight:600;letter-spacing:-.01em;font-size:15px}
+.brand span{color:var(--muted);font-weight:400}
+.pt-bar{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+.timeline{
+  display:flex;align-items:stretch;gap:0;margin-top:10px;
+  border:1px solid var(--rule);border-radius:2px;overflow:hidden;
+  background:var(--surface-2);
+}
+.tl-seg{padding:7px 12px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.tl-seg + .tl-seg{border-left:1px solid var(--rule)}
+.tl-k{font-size:11px;color:var(--faint);letter-spacing:.02em}
+.tl-v{font-family:"IBM Plex Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums}
+.tl-pod{
+  margin-left:auto;background:var(--accent);color:#fff;
+  display:flex;align-items:center;padding:0 16px;gap:8px;
+  font-family:"IBM Plex Mono",monospace;
+}
+:root[data-theme="dark"] .tl-pod,
+:root:not([data-theme="light"]) .tl-pod{color:#0F171E}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .tl-pod{color:#fff}}
+.tl-pod b{font-size:26px;font-weight:500;line-height:1;letter-spacing:-.02em}
+.tl-pod i{font-style:normal;font-size:11px;opacity:.85;font-family:"IBM Plex Sans",sans-serif}
+.tl-pod.na b{font-size:15px;opacity:.8}
+
+/* ---------- layout ---------- */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:1fr}}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:2px;
+  box-shadow:var(--shadow);
+  margin-bottom:14px;
+}
+.card > h2{
+  margin:0;padding:9px 14px;
+  font-size:12px;font-weight:600;color:var(--muted);
+  border-bottom:1px solid var(--rule-soft);
+  display:flex;align-items:center;gap:8px;
+}
+.card > h2 .sec{
+  font-family:"IBM Plex Mono",monospace;
+  color:var(--accent-ink);font-size:13px;font-weight:500;
+}
+.body{padding:12px 14px}
+
+.grid{display:grid;gap:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g5{grid-template-columns:repeat(5,1fr)}
+@media (max-width:520px){.g4,.g5{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr 1fr}}
+
+label.f{display:flex;flex-direction:column;gap:3px;min-width:0}
+label.f > span{font-size:11.5px;color:var(--muted)}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  font-family:inherit;font-size:14px;color:var(--ink);
+  background:var(--surface-2);
+  border:1px solid var(--rule);border-radius:2px;
+  padding:7px 8px;width:100%;
+  appearance:none;-webkit-appearance:none;
+}
+input[type=number],input[type=date]{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+select{background-image:none}
+textarea{resize:vertical;min-height:58px;line-height:1.45}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{
+  outline:2px solid var(--accent);outline-offset:1px;
+}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+input.gap,textarea.gap{border-color:var(--signal);background:var(--signal-bg)}
+
+.checks{display:flex;flex-direction:column;gap:7px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.4;cursor:pointer}
+.chk input{margin:2px 0 0;accent-color:var(--accent);flex:none;width:15px;height:15px}
+.chk span{min-width:0}
+
+button{
+  font-family:inherit;font-size:13px;
+  border:1px solid var(--rule);border-radius:2px;
+  background:var(--surface-2);color:var(--ink);
+  padding:6px 11px;cursor:pointer;
+}
+button:hover{border-color:var(--accent);color:var(--accent-ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+:root[data-theme="dark"] button.primary,
+:root:not([data-theme="light"]) button.primary{color:#0F171E}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) button.primary{color:#fff}}
+button.primary:hover{opacity:.9;color:#fff}
+:root[data-theme="dark"] button.primary:hover{color:#0F171E}
+button.ghost{background:transparent}
+
+/* ---------- output ---------- */
+.out-card{position:sticky;top:132px}
+@media (max-width:900px){.out-card{position:static}}
+.out-head{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--rule-soft)}
+.out-head h2{margin:0;font-size:12px;font-weight:600;color:var(--muted)}
+.out-actions{margin-left:auto;display:flex;gap:6px}
+pre.note{
+  margin:0;padding:14px;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:12.5px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;
+  max-height:min(58vh,640px);overflow:auto;
+}
+pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;border-radius:1px}
+.gapbar{
+  padding:9px 14px;border-top:1px solid var(--rule-soft);
+  font-size:12.5px;color:var(--muted);
+}
+.gapbar b{color:var(--signal);font-weight:500}
+.gapbar.clean b{color:var(--ok)}
+
+/* ---------- patient chips ---------- */
+.chip{
+  font-size:12.5px;padding:4px 9px;border:1px solid var(--rule);border-radius:2px;
+  background:var(--surface-2);cursor:pointer;color:var(--muted);
+  white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis;
+}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .chip.on,
+:root:not([data-theme="light"]) .chip.on{color:#0F171E}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .chip.on{color:#fff}}
+
+.hint{font-size:12px;color:var(--faint);margin:6px 0 0;line-height:1.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mt{margin-top:10px}
+.sep{height:1px;background:var(--rule-soft);margin:12px -14px}
+.toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:var(--ink);color:var(--surface);
+  padding:8px 16px;border-radius:2px;font-size:13px;
+  opacity:0;pointer-events:none;transition:opacity .18s;z-index:60;
+}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="rail">
+  <div class="rail-inner">
+    <div class="rail-top">
+      <div class="brand">查房 Progress Note <span>· 一般外科</span></div>
+      <div class="pt-bar" id="ptBar"></div>
+    </div>
+    <div class="timeline">
+      <div class="tl-seg"><div class="tl-k">OP date</div><div class="tl-v" id="tlOp">—</div></div>
+      <div class="tl-seg"><div class="tl-k">Note date</div><div class="tl-v" id="tlNote">—</div></div>
+      <div class="tl-seg" style="flex:1 1 auto"><div class="tl-k">Procedure</div><div class="tl-v" id="tlProc" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</div></div>
+      <div class="tl-pod na" id="tlPod"><b>POD —</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+<div class="cols">
+
+  <!-- ============ LEFT: input ============ -->
+  <div>
+
+    <div class="card">
+      <h2>病人與手術</h2>
+      <div class="body">
+        <div class="grid g2">
+          <label class="f"><span>床號／識別（僅存在本機）</span><input type="text" id="label" placeholder="12A-3"></label>
+          <label class="f"><span>Note date</span><input type="date" id="noteDate"></label>
+        </div>
+        <div class="grid g2 mt">
+          <label class="f"><span>Diagnosis</span><input type="text" id="dx" placeholder="Recurrent hepatocellular carcinoma at S7"></label>
+          <label class="f"><span>OP date</span><input type="date" id="opDate"></label>
+        </div>
+        <label class="f mt"><span>Procedure</span><input type="text" id="proc" placeholder="laparoscopic partial hepatectomy of S7"></label>
+        <label class="f mt"><span>Comorbidity／其他 active problem（一行一項）</span><textarea id="comorbid" placeholder="Chronic hepatitis C&#10;Type 2 diabetes mellitus"></textarea></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="sec">S</span> Subjective</h2>
+      <div class="body">
+        <div class="grid g3">
+          <label class="f"><span>VAS</span>
+            <select id="vas">
+              <option value="">未填</option>
+              <option>0</option><option>1</option><option>2</option><option>3</option>
+              <option>3-4</option><option>4</option><option>5</option><option>6</option>
+              <option>7</option><option>8</option><option>9</option><option>10</option>
+            </select></label>
+          <label class="f"><span>排氣／排便</span>
+            <select id="flatus">
+              <option value="">未填</option>
+              <option value="none">尚未排氣</option>
+              <option value="flatus">已排氣</option>
+              <option value="bm">已排氣、有排便</option>
+              <option value="loose">已排氣、稀便</option>
+            </select></label>
+          <label class="f"><span>Diet</span>
+            <select id="diet">
+              <option value="">未填</option>
+              <option value="NPO">NPO</option>
+              <option value="clear liquid diet">Clear liquid</option>
+              <option value="full liquid diet">Full liquid</option>
+              <option value="soft diet">Soft</option>
+              <option value="low-residue soft diet">Low-residue soft</option>
+              <option value="regular diet">Regular</option>
+            </select></label>
+        </div>
+        <div class="row mt">
+          <label class="chk"><input type="checkbox" id="dietOk" checked><span>進食耐受良好，無噁心嘔吐</span></label>
+          <label class="chk"><input type="checkbox" id="ambulate"><span>可下床活動</span></label>
+        </div>
+        <label class="f mt"><span>其他主訴（英文，直接寫進 S）</span><textarea id="sOther" placeholder="Generalized itching since last night, no rash noted."></textarea></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="sec">O</span> Objective</h2>
+      <div class="body">
+        <div class="grid g5">
+          <label class="f"><span>T</span><input type="number" step="0.1" id="t" placeholder="37.1"></label>
+          <label class="f"><span>P</span><input type="number" id="p" placeholder="75"></label>
+          <label class="f"><span>R</span><input type="number" id="r" placeholder="17"></label>
+          <label class="f"><span>SBP</span><input type="number" id="sbp" placeholder="146"></label>
+          <label class="f"><span>DBP</span><input type="number" id="dbp" placeholder="77"></label>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="grid g3">
+          <label class="f"><span>Consciousness</span><input type="text" id="gcs" value="E4V5M6"></label>
+          <label class="f"><span>Abdomen</span>
+            <select id="abd">
+              <option value="soft, non-tender">soft, non-tender</option>
+              <option value="soft, mild distension">soft, mild distension</option>
+              <option value="soft, distended">soft, distended</option>
+              <option value="soft, mild tenderness over wound">soft, tender over wound</option>
+              <option value="distended, tenderness noted">distended, tender</option>
+            </select></label>
+          <label class="f"><span>Wound</span>
+            <select id="wound">
+              <option value="clean, no oozing">clean, no oozing</option>
+              <option value="clean and dry">clean and dry</option>
+              <option value="mild serous discharge">mild serous discharge</option>
+              <option value="redness noted">redness noted</option>
+            </select></label>
+        </div>
+        <div class="row mt">
+          <label class="chk"><input type="checkbox" id="heent" checked><span>HEENT: pink conjunctiva, no icteric sclera</span></label>
+          <label class="chk"><input type="checkbox" id="ext" checked><span>Extremities: no pitting edema, freely movable</span></label>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="grid g4">
+          <label class="f"><span>Drain</span><input type="text" id="drainName" placeholder="CWV"></label>
+          <label class="f"><span>量 (mL)</span><input type="number" id="drainAmt" placeholder="110"></label>
+          <label class="f"><span>性狀</span>
+            <select id="drainChar">
+              <option value="">—</option>
+              <option>serosanguineous</option>
+              <option>serous</option>
+              <option>sanguineous</option>
+              <option>bilious</option>
+              <option>turbid</option>
+            </select></label>
+          <label class="f"><span>記錄日</span><input type="date" id="drainDate"></label>
+        </div>
+        <p class="hint">記錄日預設為 note date 前一天，符合寫前一天引流量的慣例。</p>
+
+        <div class="grid g3 mt">
+          <label class="f"><span>Intake (mL)</span><input type="number" id="in" placeholder="1560"></label>
+          <label class="f"><span>Output (mL)</span><input type="number" id="out" placeholder="950"></label>
+          <label class="f"><span>Balance</span><input type="text" id="bal" readonly tabindex="-1"></label>
+        </div>
+
+        <label class="f mt"><span>Labs（有抽才填，原文貼上）</span><input type="text" id="labs" placeholder="WBC 7.8, Hb 10.5, CRP 3.1 (9/4)"></label>
+        <label class="f mt"><span>其他 O 項目</span><textarea id="oOther" placeholder="NG tube: 150 mL greenish&#10;Foley: removed"></textarea></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="sec">A</span> Assessment</h2>
+      <div class="body">
+        <div class="checks" id="aList"></div>
+        <label class="f mt"><span>額外 assessment（一行一項）</span><textarea id="aOther" placeholder="Pruritus without rash, likely tramadol-related"></textarea></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="sec">P</span> Plan</h2>
+      <div class="body">
+        <label class="f"><span>Analgesic／目前用藥</span><input type="text" id="med" placeholder="Tramacet"></label>
+        <div class="checks mt" id="pList"></div>
+        <label class="f mt"><span>額外 plan（一行一項）</span><textarea id="pOther" placeholder="Consider drain removal tomorrow if output < 50 mL"></textarea></label>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ RIGHT: output ============ -->
+  <div>
+    <div class="card out-card">
+      <div class="out-head">
+        <h2>Note</h2>
+        <div class="out-actions">
+          <button class="ghost" id="btnSave">存病人</button>
+          <button class="primary" id="btnCopy">複製</button>
+        </div>
+      </div>
+      <pre class="note" id="out"></pre>
+      <div class="gapbar" id="gaps"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var STORE = "rounds:patients";
+  var patients = [];
+  var activeId = null;
+
+  /* ---------- storage ---------- */
+  function loadPatients(){
+    try{
+      var raw = localStorage.getItem(STORE);
+      patients = raw ? JSON.parse(raw) : [];
+      if(!Array.isArray(patients)) patients = [];
+    }catch(e){ patients = []; }
+  }
+  function savePatients(){
+    try{ localStorage.setItem(STORE, JSON.stringify(patients)); }
+    catch(e){ toast("這台裝置無法儲存，note 仍可正常產生"); }
+  }
+
+  /* ---------- date helpers ---------- */
+  function today(){
+    var d = new Date(), m = d.getMonth()+1, day = d.getDate();
+    return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+  }
+  function shiftDays(iso, n){
+    if(!iso) return "";
+    var p = iso.split("-");
+    var d = new Date(+p[0], +p[1]-1, +p[2]);
+    d.setDate(d.getDate()+n);
+    var m = d.getMonth()+1, day = d.getDate();
+    return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;
+  }
+  function slash(iso){ return iso ? iso.replace(/-/g,"/") : ""; }
+  function shortDate(iso){
+    if(!iso) return "";
+    var p = iso.split("-");
+    return (+p[1])+"/"+(+p[2]);
+  }
+  function podOf(op, note){
+    if(!op || !note) return null;
+    var a = op.split("-"), b = note.split("-");
+    var d1 = Date.UTC(+a[0], +a[1]-1, +a[2]);
+    var d2 = Date.UTC(+b[0], +b[1]-1, +b[2]);
+    return Math.round((d2-d1)/86400000);
+  }
+
+  /* ---------- assessment / plan option sets ---------- */
+  var A_OPTS = [], P_OPTS = [];
+
+  function procKind(proc){
+    var s = (proc||"").toLowerCase();
+    if(/hepatect|liver|segmentect.*s\d|hepatic/.test(s)) return "liver";
+    if(/whipple|pancreat|pd\b/.test(s)) return "pancreas";
+    if(/colect|colon|rectal|anastomo|hartmann|ileostom|colostom/.test(s)) return "bowel";
+    if(/cholecystect|gallbladder|chole\b/.test(s)) return "gb";
+    if(/hernia|herniorrhaph/.test(s)) return "hernia";
+    if(/appendect/.test(s)) return "appy";
+    return "generic";
+  }
+
+  function buildAOpts(v){
+    var out = [];
+    var pod = podOf(v.opDate, v.noteDate);
+
+    if(v.t !== ""){
+      var t = parseFloat(v.t);
+      if(t >= 38) out.push({k:"fever", txt:"Febrile, T "+v.t+"\u00B0C, source to be identified", on:true});
+      else out.push({k:"afeb", txt:"Afebrile"+(v.sbp && +v.sbp>=90 ? ", hemodynamically stable":""), on:true});
+    }
+    if(v.sbp !== ""){
+      var s = +v.sbp;
+      if(s >= 140) out.push({k:"htn", txt:"BP "+v.sbp+"/"+(v.dbp||"?")+" mmHg, suboptimal control", on:true});
+      else if(s < 90) out.push({k:"hypo", txt:"Hypotension, BP "+v.sbp+"/"+(v.dbp||"?")+" mmHg", on:true});
+    }
+    if(v.vas !== ""){
+      var n = parseFloat(String(v.vas).split("-")[0]);
+      var med = v.med ? " under "+v.med : "";
+      if(n <= 3) out.push({k:"pain", txt:"Pain adequately controlled"+med, on:true});
+      else if(n <= 6) out.push({k:"pain", txt:"Pain fairly controlled, VAS "+v.vas+med, on:true});
+      else out.push({k:"pain", txt:"Poorly controlled pain, VAS "+v.vas+med+", analgesic adjustment needed", on:true});
+    }
+    if(v.flatus === "none"){
+      out.push({k:"bowel", txt:"No flatus passed yet"+(/distend/.test(v.abd)?" with mild abdominal distension":"")+", compatible with expected post-operative bowel status", on:true});
+    }else if(v.flatus){
+      out.push({k:"bowel", txt:"Bowel function returning with passage of flatus"+(v.flatus==="bm"?" and stool":v.flatus==="loose"?" and loose stool":""), on:true});
+    }
+    if(v.drainAmt !== "" && +v.drainAmt > 200){
+      out.push({k:"drain", txt:"High drain output, "+v.drainAmt+" mL/day, close monitoring required", on:true});
+    }
+
+    var kind = procKind(v.proc);
+    if(pod !== null && pod >= 3 && v.flatus === "none"){
+      out.push({k:"ileus", txt:"Delayed return of bowel function, rule out post-operative ileus", on:false});
+    }
+    if(kind === "liver"){
+      out.push({k:"liv", txt:"Post-hepatectomy liver function to be monitored", on:false});
+    }
+    if(kind === "bowel"){
+      out.push({k:"leak", txt:"No clinical evidence of anastomotic leakage", on:false});
+    }
+    return out;
+  }
+
+  function buildPOpts(v){
+    var out = [];
+    var kind = procKind(v.proc);
+    var pod = podOf(v.opDate, v.noteDate);
+
+    if(v.med) out.push({k:"med", txt:"Continue "+v.med+"; monitor pain score", on:true});
+    else out.push({k:"med", txt:"Continue current analgesics; monitor pain score", on:false});
+
+    if(v.flatus === "none") out.push({k:"diet", txt:"Keep "+(v.diet||"NPO / clear liquid")+" until flatus passed, then advance diet", on:true});
+    else if(v.diet) out.push({k:"diet", txt:"Advance diet as tolerated", on:true});
+
+    out.push({k:"amb", txt:"Encourage early ambulation and chest care", on:true});
+    if(v.drainName) out.push({k:"drain", txt:"Monitor "+v.drainName+" drain output and character", on:true});
+    out.push({k:"wound", txt:"Wound care as scheduled", on:false});
+    out.push({k:"io", txt:"Monitor intake and output", on:false});
+
+    if(kind === "liver") out.push({k:"livp", txt:"Observe for signs of post-hepatectomy liver dysfunction (jaundice, encephalopathy, coagulopathy, ascites)", on:true});
+    if(kind === "bowel") out.push({k:"leakp", txt:"Observe for signs of anastomotic leakage (fever, tachycardia, peritoneal signs, turbid drainage)", on:true});
+    if(kind === "pancreas") out.push({k:"amyl", txt:"Check drain amylase; observe for delayed gastric emptying", on:true});
+    if(kind === "gb") out.push({k:"gbp", txt:"Assess for discharge if oral intake tolerated and wound condition stable", on:false});
+
+    if(v.drainAmt !== "" && +v.drainAmt < 50 && pod !== null && pod >= 2){
+      out.push({k:"pull", txt:"Consider drain removal if output remains low", on:false});
+    }
+    out.push({k:"exp", txt:"Explain current condition and plan to patient and family", on:false});
+    return out;
+  }
+
+  var checkState = {};  // key -> bool, remembers user overrides within a session
+
+  function renderChecks(container, opts, prefix){
+    var html = "";
+    for(var i=0;i<opts.length;i++){
+      var o = opts[i];
+      var key = prefix+":"+o.k+":"+o.txt;
+      var on = Object.prototype.hasOwnProperty.call(checkState,key) ? checkState[key] : o.on;
+      o._key = key; o._on = on;
+      html += '<label class="chk"><input type="checkbox" data-key="'+esc(key)+'"'+(on?" checked":"")+
+              '><span>'+esc(o.txt)+'</span></label>';
+    }
+    container.innerHTML = html || '<p class="hint">填入資料後會自動列出建議項目。</p>';
+    var boxes = container.querySelectorAll("input[type=checkbox]");
+    for(var j=0;j<boxes.length;j++){
+      boxes[j].addEventListener("change", function(){
+        checkState[this.getAttribute("data-key")] = this.checked;
+        render();
+      });
+    }
+  }
+
+  function esc(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  /* ---------- gather ---------- */
+  function vals(){
+    return {
+      label:$("label").value.trim(),
+      noteDate:$("noteDate").value,
+      opDate:$("opDate").value,
+      dx:$("dx").value.trim(),
+      proc:$("proc").value.trim(),
+      comorbid:$("comorbid").value,
+      vas:$("vas").value,
+      flatus:$("flatus").value,
+      diet:$("diet").value,
+      dietOk:$("dietOk").checked,
+      ambulate:$("ambulate").checked,
+      sOther:$("sOther").value.trim(),
+      t:$("t").value, p:$("p").value, r:$("r").value,
+      sbp:$("sbp").value, dbp:$("dbp").value,
+      gcs:$("gcs").value.trim(),
+      abd:$("abd").value, wound:$("wound").value,
+      heent:$("heent").checked, ext:$("ext").checked,
+      drainName:$("drainName").value.trim(),
+      drainAmt:$("drainAmt").value,
+      drainChar:$("drainChar").value,
+      drainDate:$("drainDate").value,
+      "in":$("in").value, out:$("out").value,
+      labs:$("labs").value.trim(),
+      oOther:$("oOther").value.trim(),
+      aOther:$("aOther").value,
+      med:$("med").value.trim(),
+      pOther:$("pOther").value
+    };
+  }
+
+  var GAP = "\u0001";           // placeholder marker, replaced by [ ] at render
+  function g(txt){ return GAP+txt+GAP; }
+
+  /* ---------- note builder ---------- */
+  function buildNote(v, aOpts, pOpts){
+    var gaps = [];
+    var pod = podOf(v.opDate, v.noteDate);
+    var L = [];
+
+    // header
+    var podTxt = pod === null ? g("POD#?") : "POD#"+pod;
+    if(pod !== null && pod < 0) podTxt = g("POD#"+pod+" — OP date after note date");
+    var procTxt = v.proc || g("procedure");
+    var opTxt = v.opDate ? slash(v.opDate) : g("OP date");
+    if(!v.proc) gaps.push("術式");
+    if(!v.opDate) gaps.push("OP date");
+    L.push(podTxt+" s/p "+procTxt+" on "+opTxt);
+    L.push("");
+
+    // S
+    var s = [];
+    if(v.sOther) s.push(v.sOther);
+    if(v.vas === ""){ s.push(g("pain / VAS")); gaps.push("VAS"); }
+    else if(v.vas === "0") s.push("No wound pain.");
+    else s.push("Wound pain, VAS "+v.vas+(parseFloat(v.vas)<=4?", tolerable.":"."));
+    if(v.flatus === ""){ s.push(g("flatus")); gaps.push("排氣狀況"); }
+    else if(v.flatus === "none") s.push("No flatus passed yet.");
+    else if(v.flatus === "flatus") s.push("Flatus passed.");
+    else if(v.flatus === "bm") s.push("Flatus and stool passed.");
+    else if(v.flatus === "loose") s.push("Flatus passed with loose stool.");
+    if(v.diet === ""){ s.push(g("diet")); gaps.push("Diet"); }
+    else if(v.diet === "NPO") s.push("Kept NPO.");
+    else s.push("Tolerating "+v.diet+(v.dietOk?" without nausea or vomiting.":"."));
+    if(v.ambulate) s.push("Ambulating.");
+    L.push(wrapBlock("S: ", s.join(" ")));
+    L.push("");
+
+    // O
+    var o = [];
+    var vs = [];
+    if(v.t){ vs.push("T "+v.t); } else { vs.push("T "+g("")); }
+    if(v.p){ vs.push("P "+v.p); } else { vs.push("P "+g("")); }
+    if(v.r){ vs.push("R "+v.r); } else { vs.push("R "+g("")); }
+    if(v.sbp && v.dbp){ vs.push("BP "+v.sbp+"/"+v.dbp); }
+    else { vs.push("BP "+g("")); }
+    if(!v.t || !v.p || !v.r || !v.sbp || !v.dbp) gaps.push("Vital signs");
+    o.push(vs.join("  "));
+    if(v.gcs) o.push("Consciousness: "+v.gcs);
+    if(v.heent) o.push("HEENT: pink conjunctiva, no icteric sclera");
+    o.push("Abdomen: "+v.abd);
+    o.push("Wound: "+v.wound);
+    if(v.drainName || v.drainAmt !== ""){
+      var dparts = (v.drainName || g("drain"))+" drain: "+
+                   (v.drainAmt !== "" ? v.drainAmt+" mL" : g("amount"))+
+                   (v.drainChar ? ", "+v.drainChar : "")+
+                   (v.drainDate ? " ("+shortDate(v.drainDate)+")" : "");
+      if(v.drainAmt === "") gaps.push("引流量");
+      o.push(dparts);
+    }
+    if(v.ext) o.push("Extremities: no pitting edema, freely movable");
+    if(v["in"] !== "" && v.out !== ""){
+      var b = +v["in"] - +v.out;
+      o.push("I/O: "+v["in"]+" / "+v.out+", balance "+(b>=0?"+":"")+b);
+    }else{
+      o.push("I/O: "+g("intake / output"));
+      gaps.push("I/O");
+    }
+    if(v.labs) o.push("Labs: "+v.labs);
+    if(v.oOther) o.push.apply(o, v.oOther.split("\n").filter(nonEmpty));
+    L.push("O: "+o.join("\n   "));
+    L.push("");
+
+    // A
+    var a = [];
+    var dxTxt = v.dx || g("diagnosis");
+    if(!v.dx) gaps.push("Diagnosis");
+    a.push(dxTxt+", s/p "+procTxt+" on "+opTxt+", "+podTxt);
+    var co = v.comorbid.split("\n").filter(nonEmpty);
+    for(var i=0;i<co.length;i++) a.push(co[i].trim());
+    for(var j=0;j<aOpts.length;j++) if(aOpts[j]._on) a.push(aOpts[j].txt);
+    var ao = v.aOther.split("\n").filter(nonEmpty);
+    for(var k=0;k<ao.length;k++) a.push(ao[k].trim());
+    L.push(numbered("A: ", a));
+    L.push("");
+
+    // P
+    var p = [];
+    for(var m=0;m<pOpts.length;m++) if(pOpts[m]._on) p.push(pOpts[m].txt);
+    var po = v.pOther.split("\n").filter(nonEmpty);
+    for(var n=0;n<po.length;n++) p.push(po[n].trim());
+    if(!p.length) p.push(g("plan"));
+    L.push(numbered("P: ", p));
+
+    return { text:L.join("\n"), gaps:gaps, pod:pod };
+  }
+
+  function nonEmpty(x){ return x.trim() !== ""; }
+
+  function numbered(prefix, items){
+    var pad = "   ";
+    var lines = [];
+    for(var i=0;i<items.length;i++){
+      var num = (i+1)+". ";
+      var body = items[i];
+      var head = (i===0? prefix : pad) + num;
+      lines.push(wrapCont(head, body, pad + "   "));
+    }
+    return lines.join("\n");
+  }
+
+  function wrapBlock(prefix, body){
+    return wrapCont(prefix, body, "   ");
+  }
+
+  // soft wrap at ~66 chars of body, continuation indented
+  function wrapCont(head, body, indent){
+    var width = 66;
+    var words = body.split(" ");
+    var lines = [], cur = head;
+    var first = true;
+    for(var i=0;i<words.length;i++){
+      var w = words[i];
+      var testLen = visLen(cur) + (cur.trim()===""||cur===head&&first?0:1) + visLen(w);
+      if(visLen(cur) > 0 && testLen > width + head.length && cur !== head){
+        lines.push(cur);
+        cur = indent + w;
+      }else{
+        cur = (cur === head || cur === indent) ? cur + w : cur + " " + w;
+      }
+    }
+    if(cur.trim() !== "") lines.push(cur);
+    return lines.join("\n");
+  }
+  function visLen(s){ return s.replace(new RegExp(GAP,"g"),"").length; }
+
+  /* ---------- render ---------- */
+  function render(){
+    var v = vals();
+
+    // derived fields
+    if(v["in"] !== "" && v.out !== ""){
+      var b = +v["in"] - +v.out;
+      $("bal").value = (b>=0?"+":"")+b+" mL";
+    } else $("bal").value = "";
+
+    var aOpts = buildAOpts(v), pOpts = buildPOpts(v);
+    renderChecks($("aList"), aOpts, "a");
+    renderChecks($("pList"), pOpts, "p");
+
+    var built = buildNote(v, aOpts, pOpts);
+
+    // timeline
+    $("tlOp").textContent = v.opDate ? slash(v.opDate) : "—";
+    $("tlNote").textContent = v.noteDate ? slash(v.noteDate) : "—";
+    $("tlProc").textContent = v.proc || "—";
+    var podEl = $("tlPod");
+    if(built.pod === null){
+      podEl.className = "tl-pod na";
+      podEl.innerHTML = "<b>POD —</b>";
+    }else if(built.pod < 0){
+      podEl.className = "tl-pod na";
+      podEl.innerHTML = "<b>日期有誤</b>";
+    }else{
+      podEl.className = "tl-pod";
+      podEl.innerHTML = "<i>POD</i><b>"+built.pod+"</b>";
+    }
+
+    // output with gap highlighting
+    var html = esc(built.text)
+      .split(GAP)
+      .map(function(seg,i){ return i%2 ? "<mark>[ "+seg+" ]</mark>" : seg; })
+      .join("");
+    $("out").innerHTML = html;
+
+    var gb = $("gaps");
+    if(built.gaps.length){
+      gb.className = "gapbar";
+      gb.innerHTML = "<b>"+built.gaps.length+" 項未填</b> · "+esc(built.gaps.join("、"))+
+                     "　複製後這些位置會留 [ ]，不會自動填數值。";
+    }else{
+      gb.className = "gapbar clean";
+      gb.innerHTML = "<b>資料齊全</b> · 可直接複製貼上";
+    }
+  }
+
+  function plainNote(){
+    var v = vals();
+    var built = buildNote(v, buildAOpts(v), buildPOpts(v));
+    return built.text.split(GAP).map(function(seg,i){ return i%2 ? "[ "+seg+" ]" : seg; }).join("");
+  }
+
+  /* ---------- patients ---------- */
+  function renderPtBar(){
+    var bar = $("ptBar");
+    var html = "";
+    for(var i=0;i<patients.length;i++){
+      var pt = patients[i];
+      html += '<button class="chip'+(pt.id===activeId?" on":"")+'" data-id="'+esc(pt.id)+'">'+
+              esc(pt.label || pt.dx || "未命名")+'</button>';
+    }
+    html += '<button class="chip" data-id="__new">＋ 新病人</button>';
+    bar.innerHTML = html;
+    var btns = bar.querySelectorAll("button");
+    for(var j=0;j<btns.length;j++){
+      btns[j].addEventListener("click", function(){
+        var id = this.getAttribute("data-id");
+        if(id === "__new"){ newPatient(); }
+        else { loadPatient(id); }
+      });
+    }
+  }
+
+  function newPatient(){
+    activeId = null;
+    ["label","dx","proc","comorbid","sOther","oOther","aOther","pOther","labs","med",
+     "t","p","r","sbp","dbp","in","out","drainName","drainAmt"].forEach(function(id){ $(id).value=""; });
+    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value="";
+    $("opDate").value=""; $("gcs").value="E4V5M6";
+    $("noteDate").value = today();
+    $("drainDate").value = shiftDays(today(), -1);
+    checkState = {};
+    renderPtBar(); render();
+  }
+
+  function loadPatient(id){
+    var pt = null;
+    for(var i=0;i<patients.length;i++) if(patients[i].id === id) pt = patients[i];
+    if(!pt) return;
+    activeId = id;
+    $("label").value = pt.label || "";
+    $("dx").value = pt.dx || "";
+    $("proc").value = pt.proc || "";
+    $("opDate").value = pt.opDate || "";
+    $("comorbid").value = pt.comorbid || "";
+    $("med").value = pt.med || "";
+    $("drainName").value = pt.drainName || "";
+    // daily fields always start clean
+    ["sOther","oOther","aOther","pOther","labs","t","p","r","sbp","dbp","in","out","drainAmt"]
+      .forEach(function(id){ $(id).value=""; });
+    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value="";
+    $("noteDate").value = today();
+    $("drainDate").value = shiftDays(today(), -1);
+    checkState = {};
+    renderPtBar(); render();
+    toast("已載入，固定欄位保留、當日資料清空");
+  }
+
+  function savePatient(){
+    var v = vals();
+    if(!v.label && !v.dx){ toast("先填床號或診斷才能存"); return; }
+    var rec = {
+      id: activeId || ("p"+Date.now()),
+      label: v.label, dx: v.dx, proc: v.proc, opDate: v.opDate,
+      comorbid: v.comorbid, med: v.med, drainName: v.drainName
+    };
+    var found = false;
+    for(var i=0;i<patients.length;i++){
+      if(patients[i].id === rec.id){ patients[i] = rec; found = true; }
+    }
+    if(!found) patients.push(rec);
+    activeId = rec.id;
+    savePatients(); renderPtBar();
+    toast("已存在這台裝置");
+  }
+
+  /* ---------- misc ---------- */
+  var toastTimer;
+  function toast(msg){
+    var el = $("toast");
+    el.textContent = msg; el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2200);
+  }
+
+  function copyNote(){
+    var txt = plainNote();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ toast("已複製"); },
+        function(){ fallbackCopy(txt); });
+    } else fallbackCopy(txt);
+  }
+  function fallbackCopy(txt){
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("已複製"); }
+    catch(e){ toast("無法複製，請手動選取"); }
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- wire up ---------- */
+  var ids = ["label","noteDate","opDate","dx","proc","comorbid","vas","flatus","diet","dietOk",
+             "ambulate","sOther","t","p","r","sbp","dbp","gcs","abd","wound","heent","ext",
+             "drainName","drainAmt","drainChar","drainDate","in","out","labs","oOther",
+             "aOther","med","pOther"];
+  ids.forEach(function(id){
+    var el = $(id);
+    el.addEventListener("input", render);
+    el.addEventListener("change", render);
+  });
+  $("noteDate").addEventListener("change", function(){
+    $("drainDate").value = shiftDays($("noteDate").value, -1);
+    render();
+  });
+  $("btnCopy").addEventListener("click", copyNote);
+  $("btnSave").addEventListener("click", savePatient);
+
+  loadPatients();
+  $("noteDate").value = today();
+  $("drainDate").value = shiftDays(today(), -1);
+  renderPtBar();
+  render();
+})();
+</script>
+</body>
+</html>
