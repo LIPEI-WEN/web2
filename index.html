@@ -653,20 +653,19 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     // S
     var s = [];
     if(v.sOther) s.push(v.sOther);
-    if(v.vas === ""){ s.push(g("pain / VAS")); gaps.push("VAS"); }
-    else if(v.vas === "0") s.push("No wound pain.");
-    else s.push("Wound pain, VAS "+v.vas+(parseFloat(v.vas)<=4?", tolerable.":"."));
-    if(v.flatus === ""){ s.push(g("flatus")); gaps.push("排氣狀況"); }
-    else if(v.flatus === "none") s.push("No flatus passed yet.");
+    // S only states what was filled in; blank items are left out rather than flagged
+    if(v.vas === "0") s.push("No wound pain.");
+    else if(v.vas !== "") s.push("Wound pain, VAS "+v.vas+(parseFloat(v.vas)<=4?", tolerable.":"."));
+    if(v.flatus === "none") s.push("No flatus passed yet.");
     else if(v.flatus === "flatus") s.push("Flatus passed.");
     else if(v.flatus === "bm") s.push("Flatus and stool passed.");
     else if(v.flatus === "loose") s.push("Flatus passed with loose stool.");
-    if(v.diet === ""){ s.push(g("diet")); gaps.push("Diet"); }
-    else if(v.diet === "NPO") s.push("Kept NPO.");
+    if(v.diet === "NPO") s.push("Kept NPO.");
     else if(v.diet === "sip water") s.push("Sip water"+(v.dietOk?", tolerated without nausea or vomiting.":"."));
     else if(v.diet === "try water") s.push("Try water"+(v.dietOk?", tolerated without nausea or vomiting.":"."));
-    else s.push("Tolerating "+v.diet+(v.dietOk?" without nausea or vomiting.":"."));
+    else if(v.diet !== "") s.push("Tolerating "+v.diet+(v.dietOk?" without nausea or vomiting.":"."));
     if(v.ambulate) s.push("Ambulating.");
+    if(!s.length) s.push(g("S"));
     sec.S = wrapBlock("S: ", s.join(" "));
     L.push(sec.S);
     L.push("");
@@ -787,6 +786,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     renderChecks($("pList"), pOpts, "p");
 
     var built = lastBuilt = buildNote(v, aOpts, pOpts);
+    autoSave(v);
 
     // timeline
     $("tlOp").textContent = v.opDate ? slash(v.opDate) : "—";
@@ -872,15 +872,27 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
      "t","p","r","sbp","dbp","in","out","drainName","drainAmt","drainName2","drainAmt2"].forEach(function(id){ $(id).value=""; });
     $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value=""; $("drainChar2").value="";
     $("opDate").value=""; $("gcs").value="E4V5M6";
+    FLAG.forEach(function(k){ $(k).classList.remove("gap"); });
     $("noteDate").value = today();
     $("drainDate").value = shiftDays(today(), -1);
     checkState = {};
     renderPtBar(); render();
   }
 
+  // fields carried over to the next day as they were last left
+  var CARRY_VAL = ["vas","flatus","diet","gcs","abd","wound","drainChar","drainChar2","oOther","aOther","pOther"];
+  var CARRY_CHK = ["dietOk","ambulate","heent","ext"];
+  // measured fresh every day: cleared on load; the vitals / I/O / drain amounts get flagged until refilled
+  var FRESH = ["t","p","r","sbp","dbp","in","out","drainAmt","drainAmt2","labs","sOther"];
+  var FLAG = ["t","p","r","sbp","dbp","in","out","drainAmt","drainAmt2"];
+
+  function findPatient(id){
+    for(var i=0;i<patients.length;i++) if(patients[i].id === id) return patients[i];
+    return null;
+  }
+
   function loadPatient(id){
-    var pt = null;
-    for(var i=0;i<patients.length;i++) if(patients[i].id === id) pt = patients[i];
+    var pt = findPatient(id);
     if(!pt) return;
     activeId = id;
     $("label").value = pt.label || "";
@@ -891,25 +903,40 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     $("med").value = pt.med || "";
     $("drainName").value = pt.drainName || "";
     $("drainName2").value = pt.drainName2 || "";
-    // daily fields always start clean
-    ["sOther","oOther","aOther","pOther","labs","t","p","r","sbp","dbp","in","out","drainAmt","drainAmt2"]
-      .forEach(function(id){ $(id).value=""; });
-    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value=""; $("drainChar2").value="";
+    var day = pt.daily || {};
+    CARRY_VAL.forEach(function(k){ $(k).value = day[k] != null ? day[k] : ""; });
+    if(day.gcs == null) $("gcs").value = "E4V5M6";
+    if(day.abd == null) $("abd").selectedIndex = 0;
+    if(day.wound == null) $("wound").selectedIndex = 0;
+    CARRY_CHK.forEach(function(k){ if(day[k] != null) $(k).checked = day[k]; });
+    FRESH.forEach(function(k){ $(k).value = ""; });
+    FLAG.forEach(function(k){
+      var off = (k === "drainAmt" && !pt.drainName) || (k === "drainAmt2" && !pt.drainName2);
+      $(k).classList.toggle("gap", !off);
+    });
     $("noteDate").value = today();
     $("drainDate").value = shiftDays(today(), -1);
-    checkState = {};
+    checkState = day.checks || {};
     renderPtBar(); render();
-    toast("已載入，固定欄位保留、當日資料清空");
+    toast(pt.day && pt.day !== today() ? "已帶入 "+shortDate(pt.day)+" 的內容，紅框欄位請重填" : "已載入");
+  }
+
+  function patientRecord(v, id){
+    var daily = {checks:checkState};
+    CARRY_VAL.forEach(function(k){ daily[k] = $(k).value; });
+    CARRY_CHK.forEach(function(k){ daily[k] = $(k).checked; });
+    return {
+      id: id,
+      label: v.label, dx: v.dx, proc: v.proc, opDate: v.opDate,
+      comorbid: v.comorbid, med: v.med, drainName: v.drainName, drainName2: v.drainName2,
+      day: v.noteDate, daily: daily
+    };
   }
 
   function savePatient(){
     var v = vals();
     if(!v.label && !v.dx){ toast("先填床號或診斷才能存"); return; }
-    var rec = {
-      id: activeId || ("p"+Date.now()),
-      label: v.label, dx: v.dx, proc: v.proc, opDate: v.opDate,
-      comorbid: v.comorbid, med: v.med, drainName: v.drainName, drainName2: v.drainName2
-    };
+    var rec = patientRecord(v, activeId || ("p"+Date.now()));
     var found = false;
     for(var i=0;i<patients.length;i++){
       if(patients[i].id === rec.id){ patients[i] = rec; found = true; }
@@ -917,7 +944,19 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     if(!found) patients.push(rec);
     activeId = rec.id;
     savePatients(); renderPtBar();
-    toast("已存在這台裝置");
+    toast("已存，之後的修改會自動儲存");
+  }
+
+  // once a patient is saved, every edit is kept so tomorrow starts from today's note
+  function autoSave(v){
+    if(!activeId) return;
+    for(var i=0;i<patients.length;i++){
+      if(patients[i].id === activeId){
+        patients[i] = patientRecord(v, activeId);
+        savePatients();
+        return;
+      }
+    }
   }
 
   // two-step: first click arms the button, second click within 3s deletes
@@ -984,6 +1023,9 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
   $("noteDate").addEventListener("change", function(){
     $("drainDate").value = shiftDays($("noteDate").value, -1);
     render();
+  });
+  FLAG.forEach(function(id){
+    $(id).addEventListener("input", function(){ if(this.value !== "") this.classList.remove("gap"); });
   });
   $("btnCopy").addEventListener("click", copyNote);
   $("noteOut").addEventListener("click", function(e){
