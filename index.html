@@ -288,6 +288,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
             <select id="diet">
               <option value="">未填</option>
               <option value="NPO">NPO</option>
+              <option value="sip water">Sip water</option>
+              <option value="try water">Try water</option>
               <option value="clear liquid diet">Clear liquid</option>
               <option value="full liquid diet">Full liquid</option>
               <option value="soft diet">Soft</option>
@@ -634,6 +636,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     else if(v.flatus === "loose") s.push("Flatus passed with loose stool.");
     if(v.diet === ""){ s.push(g("diet")); gaps.push("Diet"); }
     else if(v.diet === "NPO") s.push("Kept NPO.");
+    else if(v.diet === "sip water") s.push("Sip water"+(v.dietOk?", tolerated without nausea or vomiting.":"."));
+    else if(v.diet === "try water") s.push("Try water"+(v.dietOk?", tolerated without nausea or vomiting.":"."));
     else s.push("Tolerating "+v.diet+(v.dietOk?" without nausea or vomiting.":"."));
     if(v.ambulate) s.push("Ambulating.");
     sec.S = wrapBlock("S: ", s.join(" "));
