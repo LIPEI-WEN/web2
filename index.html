@@ -177,8 +177,6 @@ button.danger{border-color:var(--signal);color:var(--signal);background:var(--si
 button[hidden]{display:none}
 
 /* ---------- output ---------- */
-.out-card{position:sticky;top:132px}
-@media (max-width:900px){.out-card{position:static}}
 .out-head{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--rule-soft)}
 .out-head h2{margin:0;font-size:12px;font-weight:600;color:var(--muted)}
 .out-actions{margin-left:auto;display:flex;gap:6px}
@@ -187,9 +185,14 @@ pre.note{
   font-family:"IBM Plex Mono",monospace;
   font-size:12.5px;line-height:1.6;
   white-space:pre-wrap;word-break:break-word;
-  max-height:min(58vh,640px);overflow:auto;
 }
 pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;border-radius:1px}
+.seg + .seg{border-top:1px solid var(--rule-soft)}
+.seg-head{display:flex;align-items:center;gap:8px;padding:8px 14px 0}
+.seg-head .sec{font-family:"IBM Plex Mono",monospace;color:var(--accent-ink);font-size:13px;font-weight:500}
+.seg-head button{margin-left:auto;padding:3px 9px;font-size:12px}
+.seg pre.note{padding-top:6px}
+.seg-title pre.note{font-weight:500}
 .gapbar{
   padding:9px 14px;border-top:1px solid var(--rule-soft);
   font-size:12.5px;color:var(--muted);
@@ -392,10 +395,10 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
         <div class="out-actions">
           <button class="ghost" id="btnDel" hidden>出院移除</button>
           <button class="ghost" id="btnSave">存病人</button>
-          <button class="primary" id="btnCopy">複製</button>
+          <button class="primary" id="btnCopy">複製全部</button>
         </div>
       </div>
-      <pre class="note" id="out"></pre>
+      <div id="noteOut"></div>
       <div class="gapbar" id="gaps"></div>
     </div>
   </div>
@@ -613,7 +616,9 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     var opTxt = v.opDate ? slash(v.opDate) : g("OP date");
     if(!v.proc) gaps.push("術式");
     if(!v.opDate) gaps.push("OP date");
-    L.push(podTxt+" s/p "+procTxt+" on "+opTxt);
+    var sec = {};
+    sec.H = podTxt+" s/p "+procTxt+" on "+opTxt;
+    L.push(sec.H);
     L.push("");
 
     // S
@@ -631,7 +636,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     else if(v.diet === "NPO") s.push("Kept NPO.");
     else s.push("Tolerating "+v.diet+(v.dietOk?" without nausea or vomiting.":"."));
     if(v.ambulate) s.push("Ambulating.");
-    L.push(wrapBlock("S: ", s.join(" ")));
+    sec.S = wrapBlock("S: ", s.join(" "));
+    L.push(sec.S);
     L.push("");
 
     // O
@@ -666,7 +672,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     }
     if(v.labs) o.push("Labs: "+v.labs);
     if(v.oOther) o.push.apply(o, v.oOther.split("\n").filter(nonEmpty));
-    L.push("O: "+o.join("\n   "));
+    sec.O = "O: "+o.join("\n   ");
+    L.push(sec.O);
     L.push("");
 
     // A
@@ -679,7 +686,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     for(var j=0;j<aOpts.length;j++) if(aOpts[j]._on) a.push(aOpts[j].txt);
     var ao = v.aOther.split("\n").filter(nonEmpty);
     for(var k=0;k<ao.length;k++) a.push(ao[k].trim());
-    L.push(numbered("A: ", a));
+    sec.A = numbered("A: ", a);
+    L.push(sec.A);
     L.push("");
 
     // P
@@ -688,9 +696,10 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     var po = v.pOther.split("\n").filter(nonEmpty);
     for(var n=0;n<po.length;n++) p.push(po[n].trim());
     if(!p.length) p.push(g("plan"));
-    L.push(numbered("P: ", p));
+    sec.P = numbered("P: ", p);
+    L.push(sec.P);
 
-    return { text:L.join("\n"), gaps:gaps, pod:pod };
+    return { text:L.join("\n"), sec:sec, gaps:gaps, pod:pod };
   }
 
   function nonEmpty(x){ return x.trim() !== ""; }
@@ -746,7 +755,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     renderChecks($("aList"), aOpts, "a");
     renderChecks($("pList"), pOpts, "p");
 
-    var built = buildNote(v, aOpts, pOpts);
+    var built = lastBuilt = buildNote(v, aOpts, pOpts);
 
     // timeline
     $("tlOp").textContent = v.opDate ? slash(v.opDate) : "—";
@@ -764,12 +773,14 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
       podEl.innerHTML = "<i>POD</i><b>"+built.pod+"</b>";
     }
 
-    // output with gap highlighting
-    var html = esc(built.text)
-      .split(GAP)
-      .map(function(seg,i){ return i%2 ? "<mark>[ "+seg+" ]</mark>" : seg; })
-      .join("");
-    $("out").innerHTML = html;
+    // output with gap highlighting, one block per section
+    var html = '<div class="seg seg-title"><pre class="note">'+markGaps(built.sec.H)+'</pre></div>';
+    ["S","O","A","P"].forEach(function(k){
+      html += '<div class="seg"><div class="seg-head"><span class="sec">'+k+'</span>'+
+              '<button data-sec="'+k+'">複製 '+k+'</button></div>'+
+              '<pre class="note">'+markGaps(stripLabel(built.sec[k]))+'</pre></div>';
+    });
+    $("noteOut").innerHTML = html;
 
     var gb = $("gaps");
     if(built.gaps.length){
@@ -782,11 +793,24 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     }
   }
 
-  function plainNote(){
-    var v = vals();
-    var built = buildNote(v, buildAOpts(v), buildPOpts(v));
-    return built.text.split(GAP).map(function(seg,i){ return i%2 ? "[ "+seg+" ]" : seg; }).join("");
+  function markGaps(txt){
+    return esc(txt).split(GAP).map(function(seg,i){ return i%2 ? "<mark>[ "+seg+" ]</mark>" : seg; }).join("");
   }
+  function plainGaps(txt){
+    return txt.split(GAP).map(function(seg,i){ return i%2 ? "[ "+seg+" ]" : seg; }).join("");
+  }
+  // every section line starts with a 3-char label ("S: ") or 3-space indent; drop it
+  function stripLabel(txt){
+    return txt.split("\n").map(function(l){ return l.slice(3); }).join("\n");
+  }
+  // the note as last rendered; rebuilding here would lose the A/P checkbox state set in renderChecks
+  var lastBuilt = null;
+  function currentNote(){
+    if(!lastBuilt) render();
+    return lastBuilt;
+  }
+  function plainNote(){ return plainGaps(currentNote().text); }
+  function plainSection(k){ return plainGaps(stripLabel(currentNote().sec[k])); }
 
   /* ---------- patients ---------- */
   function renderPtBar(){
@@ -898,18 +922,18 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2200);
   }
 
-  function copyNote(){
-    var txt = plainNote();
+  function copyNote(){ copyText(plainNote(), "已複製全部"); }
+  function copyText(txt, msg){
     if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(function(){ toast("已複製"); },
-        function(){ fallbackCopy(txt); });
-    } else fallbackCopy(txt);
+      navigator.clipboard.writeText(txt).then(function(){ toast(msg); },
+        function(){ fallbackCopy(txt, msg); });
+    } else fallbackCopy(txt, msg);
   }
-  function fallbackCopy(txt){
+  function fallbackCopy(txt, msg){
     var ta = document.createElement("textarea");
     ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
     document.body.appendChild(ta); ta.select();
-    try{ document.execCommand("copy"); toast("已複製"); }
+    try{ document.execCommand("copy"); toast(msg); }
     catch(e){ toast("無法複製，請手動選取"); }
     document.body.removeChild(ta);
   }
@@ -929,6 +953,10 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     render();
   });
   $("btnCopy").addEventListener("click", copyNote);
+  $("noteOut").addEventListener("click", function(e){
+    var k = e.target.getAttribute && e.target.getAttribute("data-sec");
+    if(k) copyText(plainSection(k), "已複製 "+k);
+  });
   $("btnSave").addEventListener("click", savePatient);
   $("btnDel").addEventListener("click", deletePatient);
 
