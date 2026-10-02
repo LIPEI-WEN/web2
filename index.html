@@ -357,7 +357,20 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
             </select></label>
           <label class="f"><span>記錄日</span><input type="date" id="drainDate"></label>
         </div>
-        <p class="hint">記錄日預設為 note date 前一天，符合寫前一天引流量的慣例。</p>
+        <div class="grid g4 mt">
+          <label class="f"><span>Drain 2</span><input type="text" id="drainName2" placeholder="JP"></label>
+          <label class="f"><span>量 (mL)</span><input type="number" id="drainAmt2" placeholder="40"></label>
+          <label class="f"><span>性狀</span>
+            <select id="drainChar2">
+              <option value="">—</option>
+              <option>serosanguineous</option>
+              <option>serous</option>
+              <option>sanguineous</option>
+              <option>bilious</option>
+              <option>turbid</option>
+            </select></label>
+        </div>
+        <p class="hint">只有一條就讓 Drain 2 空著。記錄日兩條共用，預設為 note date 前一天，符合寫前一天引流量的慣例。</p>
 
         <div class="grid g3 mt">
           <label class="f"><span>Intake (mL)</span><input type="number" id="in" placeholder="1560"></label>
@@ -498,9 +511,11 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     }else if(v.flatus){
       out.push({k:"bowel", txt:"Bowel function returning with passage of flatus"+(v.flatus==="bm"?" and stool":v.flatus==="loose"?" and loose stool":""), on:true});
     }
-    if(v.drainAmt !== "" && +v.drainAmt > 200){
-      out.push({k:"drain", txt:"High drain output, "+v.drainAmt+" mL/day, close monitoring required", on:true});
-    }
+    v.drains.forEach(function(d, i){
+      if(d.amt !== "" && +d.amt > 200){
+        out.push({k:"drain"+i, txt:"High "+(d.name ? d.name+" " : "")+"drain output, "+d.amt+" mL/day, close monitoring required", on:true});
+      }
+    });
 
     var kind = procKind(v.proc);
     if(pod !== null && pod >= 3 && v.flatus === "none"){
@@ -527,7 +542,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     else if(v.diet) out.push({k:"diet", txt:"Advance diet as tolerated", on:true});
 
     out.push({k:"amb", txt:"Encourage early ambulation and chest care", on:true});
-    if(v.drainName) out.push({k:"drain", txt:"Monitor "+v.drainName+" drain output and character", on:true});
+    var named = v.drains.filter(function(d){ return d.name; }).map(function(d){ return d.name; });
+    if(named.length) out.push({k:"drain", txt:"Monitor "+named.join(" and ")+" drain output and character", on:true});
     out.push({k:"wound", txt:"Wound care as scheduled", on:false});
     out.push({k:"io", txt:"Monitor intake and output", on:false});
 
@@ -536,9 +552,11 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     if(kind === "pancreas") out.push({k:"amyl", txt:"Check drain amylase; observe for delayed gastric emptying", on:true});
     if(kind === "gb") out.push({k:"gbp", txt:"Assess for discharge if oral intake tolerated and wound condition stable", on:false});
 
-    if(v.drainAmt !== "" && +v.drainAmt < 50 && pod !== null && pod >= 2){
-      out.push({k:"pull", txt:"Consider drain removal if output remains low", on:false});
-    }
+    v.drains.forEach(function(d, i){
+      if(d.amt !== "" && +d.amt < 50 && pod !== null && pod >= 2){
+        out.push({k:"pull"+i, txt:"Consider "+(d.name ? d.name+" " : "")+"drain removal if output remains low", on:false});
+      }
+    });
     out.push({k:"exp", txt:"Explain current condition and plan to patient and family", on:false});
     return out;
   }
@@ -571,7 +589,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
 
   /* ---------- gather ---------- */
   function vals(){
-    return {
+    var v = {
       label:$("label").value.trim(),
       noteDate:$("noteDate").value,
       opDate:$("opDate").value,
@@ -593,6 +611,9 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
       drainAmt:$("drainAmt").value,
       drainChar:$("drainChar").value,
       drainDate:$("drainDate").value,
+      drainName2:$("drainName2").value.trim(),
+      drainAmt2:$("drainAmt2").value,
+      drainChar2:$("drainChar2").value,
       "in":$("in").value, out:$("out").value,
       labs:$("labs").value.trim(),
       oOther:$("oOther").value.trim(),
@@ -600,6 +621,12 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
       med:$("med").value.trim(),
       pOther:$("pOther").value
     };
+    // drains actually in use (a row counts once it has a name or an amount)
+    v.drains = [
+      {name:v.drainName, amt:v.drainAmt, char:v.drainChar},
+      {name:v.drainName2, amt:v.drainAmt2, char:v.drainChar2}
+    ].filter(function(d){ return d.name || d.amt !== ""; });
+    return v;
   }
 
   var GAP = "\u0001";           // placeholder marker, replaced by [ ] at render
@@ -658,14 +685,14 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     if(v.heent) o.push("HEENT: pink conjunctiva, no icteric sclera");
     o.push("Abdomen: "+v.abd);
     o.push("Wound: "+v.wound);
-    if(v.drainName || v.drainAmt !== ""){
-      var dparts = (v.drainName || g("drain"))+" drain: "+
-                   (v.drainAmt !== "" ? v.drainAmt+" mL" : g("amount"))+
-                   (v.drainChar ? ", "+v.drainChar : "")+
+    v.drains.forEach(function(d, i){
+      var dparts = (d.name || g("drain"))+" drain: "+
+                   (d.amt !== "" ? d.amt+" mL" : g("amount"))+
+                   (d.char ? ", "+d.char : "")+
                    (v.drainDate ? " ("+shortDate(v.drainDate)+")" : "");
-      if(v.drainAmt === "") gaps.push("引流量");
+      if(d.amt === "") gaps.push("引流量"+(i ? " 2" : ""));
       o.push(dparts);
-    }
+    });
     if(v.ext) o.push("Extremities: no pitting edema, freely movable");
     if(v["in"] !== "" && v.out !== ""){
       var b = +v["in"] - +v.out;
@@ -842,8 +869,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
   function newPatient(){
     activeId = null;
     ["label","dx","proc","comorbid","sOther","oOther","aOther","pOther","labs","med",
-     "t","p","r","sbp","dbp","in","out","drainName","drainAmt"].forEach(function(id){ $(id).value=""; });
-    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value="";
+     "t","p","r","sbp","dbp","in","out","drainName","drainAmt","drainName2","drainAmt2"].forEach(function(id){ $(id).value=""; });
+    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value=""; $("drainChar2").value="";
     $("opDate").value=""; $("gcs").value="E4V5M6";
     $("noteDate").value = today();
     $("drainDate").value = shiftDays(today(), -1);
@@ -863,10 +890,11 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     $("comorbid").value = pt.comorbid || "";
     $("med").value = pt.med || "";
     $("drainName").value = pt.drainName || "";
+    $("drainName2").value = pt.drainName2 || "";
     // daily fields always start clean
-    ["sOther","oOther","aOther","pOther","labs","t","p","r","sbp","dbp","in","out","drainAmt"]
+    ["sOther","oOther","aOther","pOther","labs","t","p","r","sbp","dbp","in","out","drainAmt","drainAmt2"]
       .forEach(function(id){ $(id).value=""; });
-    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value="";
+    $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value=""; $("drainChar2").value="";
     $("noteDate").value = today();
     $("drainDate").value = shiftDays(today(), -1);
     checkState = {};
@@ -880,7 +908,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     var rec = {
       id: activeId || ("p"+Date.now()),
       label: v.label, dx: v.dx, proc: v.proc, opDate: v.opDate,
-      comorbid: v.comorbid, med: v.med, drainName: v.drainName
+      comorbid: v.comorbid, med: v.med, drainName: v.drainName, drainName2: v.drainName2
     };
     var found = false;
     for(var i=0;i<patients.length;i++){
@@ -945,7 +973,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
   /* ---------- wire up ---------- */
   var ids = ["label","noteDate","opDate","dx","proc","comorbid","vas","flatus","diet","dietOk",
              "ambulate","sOther","t","p","r","sbp","dbp","gcs","abd","wound","heent","ext",
-             "drainName","drainAmt","drainChar","drainDate","in","out","labs","oOther",
+             "drainName","drainAmt","drainChar","drainDate","drainName2","drainAmt2","drainChar2",
+             "in","out","labs","oOther",
              "aOther","med","pOther"];
   ids.forEach(function(id){
     var el = $(id);
