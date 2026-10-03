@@ -327,6 +327,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
               <option value="soft, distended">soft, distended</option>
               <option value="soft, mild tenderness over wound">soft, tender over wound</option>
               <option value="distended, tenderness noted">distended, tender</option>
+              <option value="distended, tenderness around wound">distended, tender around wound</option>
             </select></label>
           <label class="f"><span>Wound</span>
             <select id="wound">
@@ -336,6 +337,28 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
               <option value="redness noted">redness noted</option>
             </select></label>
         </div>
+        <div class="grid g3 mt">
+          <label class="f"><span>Chest（可選可打）</span><input type="text" id="chest" list="chestList" value="clear breath sounds bilaterally"></label>
+          <label class="f"><span>SpO2 (%)</span><input type="number" id="spo2" placeholder="98"></label>
+          <label class="f"><span>O2（可選可打）</span><input type="text" id="o2" list="o2List" value="room air"></label>
+        </div>
+        <datalist id="chestList">
+          <option value="clear breath sounds bilaterally">
+          <option value="bilateral basal crackles">
+          <option value="crackles at right lower lung">
+          <option value="crackles at left lower lung">
+          <option value="decreased breath sounds at right base">
+          <option value="decreased breath sounds at left base">
+          <option value="expiratory wheezing">
+          <option value="coarse breath sounds">
+        </datalist>
+        <datalist id="o2List">
+          <option value="room air">
+          <option value="nasal cannula 2 L/min">
+          <option value="nasal cannula 3 L/min">
+          <option value="simple mask 6 L/min">
+          <option value="non-rebreathing mask 10 L/min">
+        </datalist>
         <div class="row mt">
           <label class="chk"><input type="checkbox" id="heent" checked><span>HEENT: pink conjunctiva, no icteric sclera</span></label>
           <label class="chk"><input type="checkbox" id="ext" checked><span>Extremities: no pitting edema, freely movable</span></label>
@@ -499,6 +522,12 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
       if(s >= 140) out.push({k:"htn", txt:"BP "+v.sbp+"/"+(v.dbp||"?")+" mmHg, suboptimal control", on:true});
       else if(s < 90) out.push({k:"hypo", txt:"Hypotension, BP "+v.sbp+"/"+(v.dbp||"?")+" mmHg", on:true});
     }
+    if(v.spo2 !== "" && +v.spo2 < 92){
+      out.push({k:"spo2", txt:"Desaturation, SpO2 "+v.spo2+"%"+(v.o2 ? " on "+v.o2 : ""), on:true});
+    }
+    if(v.chest && !/^clear/i.test(v.chest)){
+      out.push({k:"atel", txt:"Suspected post-operative atelectasis", on:false});
+    }
     if(v.vas !== ""){
       var n = parseFloat(String(v.vas).split("-")[0]);
       var med = v.med ? " under "+v.med : "";
@@ -605,6 +634,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
       t:$("t").value, p:$("p").value, r:$("r").value,
       sbp:$("sbp").value, dbp:$("dbp").value,
       gcs:$("gcs").value.trim(),
+      chest:$("chest").value.trim(), spo2:$("spo2").value, o2:$("o2").value.trim(),
       abd:$("abd").value, wound:$("wound").value,
       heent:$("heent").checked, ext:$("ext").checked,
       drainName:$("drainName").value.trim(),
@@ -679,9 +709,11 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     if(v.sbp && v.dbp){ vs.push("BP "+v.sbp+"/"+v.dbp); }
     else { vs.push("BP "+g("")); }
     if(!v.t || !v.p || !v.r || !v.sbp || !v.dbp) gaps.push("Vital signs");
+    if(v.spo2) vs.push("SpO2 "+v.spo2+"%"+(v.o2 ? " ("+v.o2+")" : ""));
     o.push(vs.join("  "));
     if(v.gcs) o.push("Consciousness: "+v.gcs);
     if(v.heent) o.push("HEENT: pink conjunctiva, no icteric sclera");
+    if(v.chest) o.push("Chest: "+v.chest);
     o.push("Abdomen: "+v.abd);
     o.push("Wound: "+v.wound);
     v.drains.forEach(function(d, i){
@@ -872,6 +904,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
      "t","p","r","sbp","dbp","in","out","drainName","drainAmt","drainName2","drainAmt2"].forEach(function(id){ $(id).value=""; });
     $("vas").value=""; $("flatus").value=""; $("diet").value=""; $("drainChar").value=""; $("drainChar2").value="";
     $("opDate").value=""; $("gcs").value="E4V5M6";
+    $("chest").value=CHEST_DEFAULT; $("o2").value="room air"; $("spo2").value="";
     FLAG.forEach(function(k){ $(k).classList.remove("gap"); });
     $("noteDate").value = today();
     $("drainDate").value = shiftDays(today(), -1);
@@ -879,11 +912,12 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     renderPtBar(); render();
   }
 
+  var CHEST_DEFAULT = "clear breath sounds bilaterally";
   // fields carried over to the next day as they were last left
-  var CARRY_VAL = ["vas","flatus","diet","gcs","abd","wound","drainChar","drainChar2","oOther","aOther","pOther"];
+  var CARRY_VAL = ["vas","flatus","diet","gcs","chest","o2","abd","wound","drainChar","drainChar2","oOther","aOther","pOther"];
   var CARRY_CHK = ["dietOk","ambulate","heent","ext"];
   // measured fresh every day: cleared on load; the vitals / I/O / drain amounts get flagged until refilled
-  var FRESH = ["t","p","r","sbp","dbp","in","out","drainAmt","drainAmt2","labs","sOther"];
+  var FRESH = ["t","p","r","sbp","dbp","spo2","in","out","drainAmt","drainAmt2","labs","sOther"];
   var FLAG = ["t","p","r","sbp","dbp","in","out","drainAmt","drainAmt2"];
 
   function findPatient(id){
@@ -906,6 +940,8 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
     var day = pt.daily || {};
     CARRY_VAL.forEach(function(k){ $(k).value = day[k] != null ? day[k] : ""; });
     if(day.gcs == null) $("gcs").value = "E4V5M6";
+    if(day.chest == null) $("chest").value = CHEST_DEFAULT;
+    if(day.o2 == null) $("o2").value = "room air";
     if(day.abd == null) $("abd").selectedIndex = 0;
     if(day.wound == null) $("wound").selectedIndex = 0;
     CARRY_CHK.forEach(function(k){ if(day[k] != null) $(k).checked = day[k]; });
@@ -1011,7 +1047,7 @@ pre.note mark{background:var(--signal-bg);color:var(--signal);padding:0 2px;bord
 
   /* ---------- wire up ---------- */
   var ids = ["label","noteDate","opDate","dx","proc","comorbid","vas","flatus","diet","dietOk",
-             "ambulate","sOther","t","p","r","sbp","dbp","gcs","abd","wound","heent","ext",
+             "ambulate","sOther","t","p","r","sbp","dbp","gcs","chest","spo2","o2","abd","wound","heent","ext",
              "drainName","drainAmt","drainChar","drainDate","drainName2","drainAmt2","drainChar2",
              "in","out","labs","oOther",
              "aOther","med","pOther"];
